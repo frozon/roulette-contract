@@ -7,6 +7,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@chainlink/contracts/src/v0.8/dev/VRFConsumerBase.sol";
 
+import "./SphereCasinoGame.sol";
+
 interface DAIPermit {
     function permit(address holder, address spender, uint256 nonce, uint256 expiry, bool allowed, uint8 v, bytes32 r, bytes32 s) external;
 }
@@ -28,7 +30,7 @@ enum Color {
 /**
  * @title Sakura casino roulette
  */
-contract Roulette is VRFConsumerBase, ERC20, Ownable {
+contract Roulette is SphereCasinoGame, VRFConsumerBase, ERC20 {
     struct Bet {
         BetType betType;
         uint8 value;
@@ -49,6 +51,7 @@ contract Roulette is VRFConsumerBase, ERC20, Ownable {
     uint256 public max_bet;
     uint256 public bet_fee;
     uint256 public redeem_min_time = 2 hours;
+    uint256 public burn_fee = 50;
 
     // Minimum required liquidity for betting 1 token
     // uint256 public minLiquidityMultiplier = 36 * 10;
@@ -79,12 +82,13 @@ contract Roulette is VRFConsumerBase, ERC20, Ownable {
      * @param _fee fee to be paid in LINK to Chainlink's VRF
      */
     constructor(
+        address _sphere_token,
         address _bet_token,
         address _vrfCoordinator,
         address _link,
         bytes32 _keyHash,
         uint _fee
-    )  ERC20("SAKURA_V1", "SV1") VRFConsumerBase(_vrfCoordinator, _link) public {
+    )  SphereCasinoGame(_sphere_token, _bet_token) ERC20("SAKURA_V1", "SV1") VRFConsumerBase(_vrfCoordinator, _link) public {
         keyHash = _keyHash;
         fee = _fee; 
         bet_token = _bet_token;
@@ -99,59 +103,6 @@ contract Roulette is VRFConsumerBase, ERC20, Ownable {
         for (uint8 i = 0; i < RED_NUMBERS.length; i++) {
             COLORS[RED_NUMBERS[i]] = Color.Red;
         }
-    }
-
-    /**
-     * Add liquidity to the pool
-     * @param amount amount of liquidity to be added
-     * @param nonce nouce index of permit function
-     * @param expiry expiry date for the permit function
-     * @param allowed indicate "allowed" for the permit function
-     * @param v signature param for the permit function
-     * @param r signature param for the permit function
-     * @param s signature param for the permit function
-     */
-    function addLiquidity(uint256 amount, uint256 nonce, uint expiry, bool allowed, uint8 v, bytes32 r, bytes32 s) public {
-        require(amount > 0, "You didn't send any balance");
-
-        // Collect ERC-20 tokens
-        collectToken(msg.sender, amount, nonce, expiry, allowed, v, r, s);
-
-        uint256 added_liquidity = amount;
-        uint256 current_shares = totalSupply();
-
-        if (current_shares <= 0) {
-            current_liquidity += added_liquidity;
-            _mint(msg.sender, BASE_SHARES * added_liquidity);
-            return;
-        }
-
-        uint256 new_shares = (added_liquidity * current_shares) / (current_liquidity + locked_liquidity);
-        current_liquidity += added_liquidity;
-
-        _mint(msg.sender, new_shares);
-    }
-
-    /**
-     * Add liquidity to the pool: ONLY FOR ERC20 TOKENS WITHOUT PERMIT FUNCTION
-     * @param amount amount of liquidity to be added
-     */
-    function addLiquidity(uint256 amount) public {
-        addLiquidity(amount, 0, 0, false, 0, 0, 0);
-    }
-
-    /**
-     * Remove liquidity from the pool
-     */
-    function removeLiquidity() external {
-        require(balanceOf(msg.sender) > 0, "Your don't have liquidity");
-
-        uint256 sender_shares = balanceOf(msg.sender);
-        uint256 sender_liquidity = (sender_shares * current_liquidity) / totalSupply();
-
-        current_liquidity -= sender_liquidity;
-        _burn(msg.sender, sender_shares);
-        IERC20(bet_token).transfer(msg.sender, sender_liquidity);
     }
 
     /**
@@ -174,12 +125,12 @@ contract Roulette is VRFConsumerBase, ERC20, Ownable {
         }
 
         require(amount <= getMaxBet(), "Your bet exceeds the max allowed");
+        require(IERC20(bet_token).balanceOf(address(this)) - locked_liquidity >= getMaxWinFromBets(bets), "can not cover win");
 
         // Collect ERC-20 tokens
-        collectToken(msg.sender, amount + bet_fee, nonce, expiry, allowed, v, r, s);
-        current_liquidity -= amount * 35;
-        locked_liquidity += amount * 36;
-        collected_fees += bet_fee;
+        collectToken(msg.sender, amount + bet_fee);
+
+        locked_liquidity += getMaxWinFromBets(bets);
 
         bytes32 requestId = getRandomNumber(randomSeed);
         emit BetRequest(requestId, msg.sender);
@@ -225,13 +176,18 @@ contract Roulette is VRFConsumerBase, ERC20, Ownable {
         uint256[3][] memory bets = _rollRequestsBets[requestId];
         uint256 rollLockedAmount = getRollRequestAmount(requestId) * 36;
 
-        current_liquidity += rollLockedAmount;
-        locked_liquidity -= rollLockedAmount;
+        // release locked liquidity
+        locked_liquidity -= getMaxWinFromBets(bets);
+
+        uint256 totalBetValue = 0;
 
         uint256 amount = 0;
         for (uint index = 0; index < bets.length; index++) {
             BetType betType = BetType(bets[index][0]);
+
             uint8 betValue = uint8(bets[index][1]);
+            totalBetValue += betValue;
+
             uint256 betAmount = bets[index][2];
 
             if (betType == BetType.Number && result == betValue) {
@@ -265,12 +221,57 @@ contract Roulette is VRFConsumerBase, ERC20, Ownable {
 
         _rollRequestsResults[requestId] = result;
         _rollRequestsCompleted[requestId] = true;
+
+        if(burn_fee > 0 && amount < totalBetValue) {
+            uint256 burnAmount = (totalBetValue - amount) * burn_fee / 100;
+            IERC20(bet_token).transferFrom(address(this), address(DEAD), burnAmount);
+        }
+
         if (amount > 0) {
-            IERC20(bet_token).transfer(_rollRequestsSender[requestId], amount);
             current_liquidity -= amount;
+            IERC20(bet_token).transfer(_rollRequestsSender[requestId], amount);
         }
 
         emit BetResult(requestId, result, amount);
+    }
+
+    function getMaxWinFromBets(Bet[] memory bets) private returns (uint256) {
+        uint256 lockedValue = 0;
+
+        for (uint index = 0; index < bets.length; index++) {
+            BetType betType = BetType(bets[index][0]);
+
+            uint8 betValue = uint8(bets[index][1]);
+
+            uint256 betAmount = bets[index][2];
+
+            if (betType == BetType.Number) {
+                lockedValue += betAmount * 36;
+                continue;
+            }
+            if (betType == BetType.Color) {
+                lockedValue += betAmount * 2;
+                continue;
+            }
+            if (betType == BetType.Even) {
+                lockedValue += betAmount * 2;
+                continue;
+            }
+            if (betType == BetType.Column) {
+                lockedValue += betAmount * 3;
+                continue;
+            }
+            if (betType == BetType.Dozen) {
+                lockedValue += betAmount * 3;
+                continue;
+            }
+            if (betType == BetType.Half) {
+                lockedValue += betAmount * 2;
+                continue;
+            }
+        }
+
+        return lockedValue;
     }
 
     /**
@@ -281,13 +282,14 @@ contract Roulette is VRFConsumerBase, ERC20, Ownable {
         require(_rollRequestsCompleted[requestId] == false, 'requestId already completed');
         require(block.timestamp - _rollRequestsTime[requestId] > redeem_min_time, 'Redeem time not passed');
 
+        uint256[3][] memory bets = _rollRequestsBets[requestId];
+
         _rollRequestsCompleted[requestId] = true;
         _rollRequestsResults[requestId] = INVALID_RESULT;
 
         uint256 amount = getRollRequestAmount(requestId);
 
-        current_liquidity += amount * 35;
-        locked_liquidity -= amount * 36;
+        locked_liquidity -= getMaxWinFromBets(bets);
 
         IERC20(bet_token).transfer(_rollRequestsSender[requestId], amount);
 
@@ -315,18 +317,8 @@ contract Roulette is VRFConsumerBase, ERC20, Ownable {
      * Collects the requested token amount from a sender
      * @param sender address of the sender
      * @param amount amount of the token to be collected
-     * @param nonce nouce index of permit function, unused if non-permit token
-     * @param expiry expiry date for the permit function, 0 if non-permit token
-     * @param allowed indicate "allowed" for the permit function, unused if non-permit token
-     * @param v signature param for the permit function, unused if non-permit token
-     * @param r signature param for the permit function, unused if non-permit token
-     * @param s signature param for the permit function, unused if non-permit token
      */
-    function collectToken(address sender, uint256 amount, uint256 nonce, uint expiry, bool allowed, uint8 v, bytes32 r, bytes32 s) private {
-        if (expiry != 0) {
-            DAIPermit(bet_token).permit(sender, address(this), nonce, expiry, allowed, v, r, s);
-        }
-
+    function collectToken(address sender, uint256 amount) private {
         IERC20(bet_token).transferFrom(sender, address(this), amount);
     }
 
@@ -371,7 +363,7 @@ contract Roulette is VRFConsumerBase, ERC20, Ownable {
      * @return the current liquidity
      */
     function getCurrentLiquidity() public view returns(uint256) {
-        return current_liquidity;
+        return IERC20(bet_token).balanceOf(address(this));
     }
 
     /**
@@ -387,7 +379,7 @@ contract Roulette is VRFConsumerBase, ERC20, Ownable {
      * @return the maximum bet
      */
     function getMaxBet() public view returns(uint256) {
-        uint256 maxBetForLiquidity = current_liquidity / minLiquidityMultiplier;
+        uint256 maxBetForLiquidity = getCurrentLiquidity() / minLiquidityMultiplier;
         if (max_bet > maxBetForLiquidity) {
             return maxBetForLiquidity;
         }
@@ -440,5 +432,12 @@ contract Roulette is VRFConsumerBase, ERC20, Ownable {
      */
     function setVRFFee(uint256 _fee) external onlyOwner {
         fee = _fee;
+    }
+
+    /**
+     * Sets the burn fee when player lose
+     */
+    function setBurnFee(uint256 _fee) public onlyOwner {
+        burn_fee = _fee;
     }
 }
