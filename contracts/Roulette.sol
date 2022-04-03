@@ -224,11 +224,11 @@ contract Roulette is SphereCasinoGame, VRFConsumerBase, ERC20 {
 
         if(burn_fee > 0 && amount < totalBetValue) {
             uint256 burnAmount = (totalBetValue - amount) * burn_fee / 100;
+            amount -= burnAmount;
             IERC20(bet_token).transferFrom(address(this), address(DEAD), burnAmount);
         }
 
         if (amount > 0) {
-            current_liquidity -= amount;
             IERC20(bet_token).transfer(_rollRequestsSender[requestId], amount);
         }
 
