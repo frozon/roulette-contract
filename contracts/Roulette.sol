@@ -37,7 +37,7 @@ contract Roulette is SphereCasinoGame, VRFConsumerBase, ERC20 {
         uint256 amount;
     }
     
-    mapping (bytes32 => uint256[3][]) _rollRequestsBets;
+    mapping (bytes32 => Bet[]) _rollRequestsBets;
     mapping (bytes32 => bool) _rollRequestsCompleted;
     mapping (bytes32 => address) _rollRequestsSender;
     mapping (bytes32 => uint8) _rollRequestsResults;
@@ -134,12 +134,12 @@ contract Roulette is SphereCasinoGame, VRFConsumerBase, ERC20 {
 
         bytes32 requestId = getRandomNumber(randomSeed);
         emit BetRequest(requestId, msg.sender);
-        
+
         _rollRequestsSender[requestId] = msg.sender;
         _rollRequestsCompleted[requestId] = false;
         _rollRequestsTime[requestId] = block.timestamp;
         for (uint i; i < bets.length; i++) {
-            _rollRequestsBets[requestId].push([uint256(bets[i].betType), uint256(bets[i].value), uint256(bets[i].amount)]);
+            _rollRequestsBets[requestId].push(bets[i]);
         }
     }
 
@@ -173,7 +173,7 @@ contract Roulette is SphereCasinoGame, VRFConsumerBase, ERC20 {
     function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
         require(_rollRequestsCompleted[requestId] == false);
         uint8 result = uint8(randomness % 37);
-        uint256[3][] memory bets = _rollRequestsBets[requestId];
+        Bet[] memory bets = _rollRequestsBets[requestId];
         uint256 rollLockedAmount = getRollRequestAmount(requestId) * 36;
 
         // release locked liquidity
@@ -183,12 +183,12 @@ contract Roulette is SphereCasinoGame, VRFConsumerBase, ERC20 {
 
         uint256 amount = 0;
         for (uint index = 0; index < bets.length; index++) {
-            BetType betType = BetType(bets[index][0]);
+            BetType betType = BetType(bets[index].betType);
 
-            uint8 betValue = uint8(bets[index][1]);
+            uint8 betValue = uint8(bets[index].value);
             totalBetValue += betValue;
 
-            uint256 betAmount = bets[index][2];
+            uint256 betAmount = bets[index].amount;
 
             if (betType == BetType.Number && result == betValue) {
                 amount += betAmount * 36;
@@ -239,11 +239,11 @@ contract Roulette is SphereCasinoGame, VRFConsumerBase, ERC20 {
         uint256 lockedValue = 0;
 
         for (uint index = 0; index < bets.length; index++) {
-            BetType betType = BetType(bets[index][0]);
+            BetType betType = BetType(bets[index].betType);
 
-            uint8 betValue = uint8(bets[index][1]);
+            uint8 betValue = uint8(bets[index].value);
 
-            uint256 betAmount = bets[index][2];
+            uint256 betAmount = bets[index].amount;
 
             if (betType == BetType.Number) {
                 lockedValue += betAmount * 36;
@@ -282,7 +282,7 @@ contract Roulette is SphereCasinoGame, VRFConsumerBase, ERC20 {
         require(_rollRequestsCompleted[requestId] == false, 'requestId already completed');
         require(block.timestamp - _rollRequestsTime[requestId] > redeem_min_time, 'Redeem time not passed');
 
-        uint256[3][] memory bets = _rollRequestsBets[requestId];
+        Bet[] memory bets = _rollRequestsBets[requestId];
 
         _rollRequestsCompleted[requestId] = true;
         _rollRequestsResults[requestId] = INVALID_RESULT;
@@ -302,11 +302,11 @@ contract Roulette is SphereCasinoGame, VRFConsumerBase, ERC20 {
      * @return amount of the roll of the request
      */
     function getRollRequestAmount(bytes32 requestId) internal view returns(uint256) {
-        uint256[3][] memory bets = _rollRequestsBets[requestId];
+        Bet[] memory bets = _rollRequestsBets[requestId];
         uint256 amount = 0;
 
         for (uint index = 0; index < bets.length; index++) {
-            uint256 betAmount = bets[index][2];
+            uint256 betAmount = bets[index].amount;
             amount += betAmount;
         }
 
@@ -354,7 +354,7 @@ contract Roulette is SphereCasinoGame, VRFConsumerBase, ERC20 {
      * @param requestId id of random request
      * @return a list of (betType, value, amount) tuplets from the request
      */
-    function betsOf(bytes32 requestId) public view returns(uint256[3][] memory) {
+    function betsOf(bytes32 requestId) public view returns(Bet[] memory) {
         return _rollRequestsBets[requestId];
     }
 
