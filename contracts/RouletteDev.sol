@@ -7,12 +7,13 @@ import "./Roulette.sol";
 /* This contract is intended for testing */
 contract RouletteDev is Roulette {
   constructor(
+        address _sphere_token,
         address _bet_token,
         address _vrfCoordinator,
         address _link,
         bytes32 _keyHash,
         uint _fee
-    ) Roulette(_bet_token, _vrfCoordinator, _link, _keyHash, _fee) public {}
+    ) Roulette(_sphere_token, _bet_token, _vrfCoordinator, _link, _keyHash, _fee) public {}
 
     /**
      * Modfies current liquidity intentionally
