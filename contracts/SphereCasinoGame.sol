@@ -5,6 +5,10 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
+interface ICSphere {
+  function mint(address _account, uint256 _amount) external;
+}
+
 contract SphereCasinoGame is Ownable {
   address public sphereToken;
   address public betToken;
@@ -31,8 +35,7 @@ contract SphereCasinoGame is Ownable {
       amount -= feeAmount;
     }
 
-    // FIXME: betToken should be mintable
-    IERC20(betToken).mint(msg.sender, amount);
+    ICSphere(betToken).mint(msg.sender, amount);
 
     emit CashIn(msg.sender, amount);
   }
@@ -60,9 +63,12 @@ contract SphereCasinoGame is Ownable {
 
   function addLiquidity(uint256 amount) public onlyOwner {
     require(
-      IERC20(sphereToken).transferFrom(owner(), address(this), amount),
+      IERC20(sphereToken).transferFrom(msg.sender, address(this), amount),
       "failed to add liquidity"
     );
+
+    ICSphere(betToken).mint(address(this), amount);
+
     emit AddLiquidity(amount);
   }
 
@@ -70,10 +76,19 @@ contract SphereCasinoGame is Ownable {
     require(amount <= IERC20(sphereToken).balanceOf(address(this)), "not enough sphere to withdraw liquidity");
 
     require(
-      IERC20(sphereToken).transfer(owner(), amount),
+      IERC20(betToken).transfer(address(DEAD), amount),
+      "could not burn liquidity"
+    );
+
+    require(
+      IERC20(sphereToken).transfer(msg.sender, amount),
       "failed to transfer sphere"
     );
     emit RemoveLiquidity(amount);
+  }
+
+  function getCurrentLiquidity() public view returns(uint256) {
+      return IERC20(betToken).balanceOf(address(this));
   }
 
   function setSphereToken(address _sphereToken) public onlyOwner {
