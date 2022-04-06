@@ -359,14 +359,6 @@ contract Roulette is SphereCasinoGame, VRFConsumerBase, ERC20 {
     }
 
     /**
-     * Returns the current pooled liquidity
-     * @return the current liquidity
-     */
-    function getCurrentLiquidity() public view returns(uint256) {
-        return IERC20(bet_token).balanceOf(address(this));
-    }
-
-    /**
      * Returns the current bet fee
      * @return the bet fee
      */
