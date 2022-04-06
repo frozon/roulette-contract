@@ -29,7 +29,7 @@ module.exports = async function(deployer, environment) {
         //   await daiToken.mint(roulette.address, intialLiquidity);
         //   await roulette.forceAddLiquidity(intialLiquidity);
         // }
-        await roulette.setBetFee(web3.utils.toWei('0.01', 'ether'));
+        // await roulette.setBetFee(web3.utils.toWei('0.01', 'ether'));
         await linkToken.transfer(roulette.address, web3.utils.toWei('100000', 'ether'));
     
         await cSphereToken.addGame(roulette.address);

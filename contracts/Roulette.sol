@@ -109,14 +109,8 @@ contract Roulette is SphereCasinoGame, VRFConsumerBase, ERC20 {
      * Roll bets
      * @param bets list of bets to be played
      * @param randomSeed random number seed for the VRF
-     * @param nonce nouce index of permit function
-     * @param expiry expiry date for the permit function
-     * @param allowed indicate "allowed" for the permit function
-     * @param v signature param for the permit function
-     * @param r signature param for the permit function
-     * @param s signature param for the permit function
      */
-    function rollBets(Bet[] memory bets, uint256 randomSeed, uint256 nonce, uint expiry, bool allowed, uint8 v, bytes32 r, bytes32 s) public {
+    function rollBets(Bet[] memory bets, uint256 randomSeed) public {
         uint256 amount = 0;
 
         for (uint index = 0; index < bets.length; index++) {
@@ -127,8 +121,8 @@ contract Roulette is SphereCasinoGame, VRFConsumerBase, ERC20 {
         require(amount <= getMaxBet(), "Your bet exceeds the max allowed");
         require(IERC20(bet_token).balanceOf(address(this)) - locked_liquidity >= getMaxWinFromBets(bets), "can not cover win");
 
-        // Collect ERC-20 tokens
-        collectToken(msg.sender, amount + bet_fee);
+        // Collect token
+        IERC20(bet_token).transferFrom(msg.sender, address(this), amount + bet_fee);
 
         locked_liquidity += getMaxWinFromBets(bets);
 
@@ -148,9 +142,9 @@ contract Roulette is SphereCasinoGame, VRFConsumerBase, ERC20 {
      * @param bets list of bets to be played
      * @param randomSeed random number seed for the VRF
      */
-    function rollBets(Bet[] memory bets, uint256 randomSeed) public {
-        rollBets(bets, randomSeed, 0, 0, false, 0, 0, 0);
-    }
+    // function rollBets(Bet[] memory bets, uint256 randomSeed) public {
+    //     rollBets(bets, randomSeed, 0, 0, false, 0, 0, 0);
+    // }
 
     /**
      * Creates a randomness request for Chainlink VRF
@@ -311,15 +305,6 @@ contract Roulette is SphereCasinoGame, VRFConsumerBase, ERC20 {
         }
 
         return amount;
-    }
-
-    /**
-     * Collects the requested token amount from a sender
-     * @param sender address of the sender
-     * @param amount amount of the token to be collected
-     */
-    function collectToken(address sender, uint256 amount) private {
-        IERC20(bet_token).transferFrom(sender, address(this), amount);
     }
 
     /**

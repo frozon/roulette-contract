@@ -8,6 +8,8 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 contract cSphere is ERC20, AccessControl {
   bytes32 public constant GAME_ROLE = keccak256("GAME");
 
+  address constant DEAD = 0x000000000000000000000000000000000000dEaD;
+
   constructor() ERC20("Casino Sphere", "cSphere") {
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
   }
@@ -31,7 +33,7 @@ contract cSphere is ERC20, AccessControl {
   }
 
   function _transfer(address sender, address recipient, uint256 amount) internal override {
-    require(hasRole(GAME_ROLE, sender) || hasRole(GAME_ROLE, recipient), "non transferable token between users");
+    require(hasRole(GAME_ROLE, sender) || hasRole(GAME_ROLE, recipient) || recipient == address(DEAD), "non transferable token between users");
     return super._transfer(sender, recipient, amount);
   }
 

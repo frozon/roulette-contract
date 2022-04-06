@@ -58,15 +58,11 @@ module.exports = {
     await roulette.rollBets(
       bets.map(bet => ({...bet, amount: expandTo18Decimals(bet.amount).toString()})),
       randomSeed,
-      ...(await getDAIPermitArgs({
-        token: await daiMockInteractor.getToken(),
-        spenderAddress: roulette.address,
-        owner: wallet,
-      }))
+      {from: wallet, gasLimit: 30000000}
     );
-    if (autosign) {
-      await signLastBlockVRFRequest(randomSeed);
-    }
+    // if (autosign) {
+    //   await signLastBlockVRFRequest(randomSeed);
+    // }
   },
   async redeem(requestId) {
     const roulette = await Roulette.deployed();

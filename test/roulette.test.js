@@ -3,7 +3,9 @@ const { getDeployerWallet, getWallets } = require('./libs/wallets');
 const rouletteInteractor = require('./libs/rouletteInteractor');
 const daiMockInteractor = require('./libs/daiMockInteractor');
 const Roulette = artifacts.require('Roulette');
-const { expandTo18Decimals } = require('./libs/decimals');
+const cSphere = artifacts.require('cSphere');
+const { expandTo18Decimals, collapseTo18Decimals } = require('./libs/decimals');
+const { before } = require('lodash');
 
 const wallets = getWallets();
 
@@ -57,131 +59,73 @@ contract('Roulette', async (accounts) => {
       assert.equal(await daiMockInteractor.balanceOf(wallet), 150, "did not received the expected liquidity");
       assert.equal(await roulette.getCurrentLiquidity(), 0, "wrong remaining liquidity");
     });
-    // it('should add and remove liquidity for multiple providers', async () => {
-    //   const wallet1 = wallets[0];
-    //   const wallet2 = wallets[1];
-    //   const wallet3 = wallets[2];
-    //   await daiMockInteractor.mint(wallet2.address, 150);
-    //   await daiMockInteractor.mint(wallet3.address, 150);
-  
-    //   // Check adding liquidity
-    //   await rouletteInteractor.addLiquidity(wallet1, 50);
-    //   await rouletteInteractor.addLiquidity(wallet2, 50);
-    //   await rouletteInteractor.addLiquidity(wallet3, 50);
-    //   assert.equal(100, await daiMockInteractor.balanceOf(wallet1.address));
-    //   assert.equal(100, await daiMockInteractor.balanceOf(wallet2.address));
-    //   assert.equal(100, await daiMockInteractor.balanceOf(wallet3.address));
-    //   assert.equal(150, await rouletteInteractor.getTotalLiquidity());
-  
-    //   // Check removing liquidity
-    //   await rouletteInteractor.removeLiquidity(wallet1);
-    //   await rouletteInteractor.removeLiquidity(wallet2);
-    //   await rouletteInteractor.removeLiquidity(wallet3);
-    //   assert.equal(150, await daiMockInteractor.balanceOf(wallet1.address));
-    //   assert.equal(150, await daiMockInteractor.balanceOf(wallet2.address));
-    //   assert.equal(150, await daiMockInteractor.balanceOf(wallet3.address));
-    //   assert.equal(0, await rouletteInteractor.getTotalLiquidity());
-    // });
-    // it('should withdraw more when pool increases', async () => {
-    //   const wallet1 = wallets[0];
-    //   const wallet2 = wallets[1];
-    //   const wallet3 = wallets[2];
-  
-    //   // Check pool positve returns
-    //   await rouletteInteractor.addLiquidity(wallet1, 50);
-    //   await rouletteInteractor.addLiquidity(wallet2, 50);
-    //   await rouletteInteractor.addLiquidity(wallet3, 50);
-    //   await rouletteInteractor.mintDAI(150);
-    //   assert.equal(300, await rouletteInteractor.getTotalLiquidity());
-    //   await rouletteInteractor.removeLiquidity(wallet1);
-    //   await rouletteInteractor.removeLiquidity(wallet2);
-    //   await rouletteInteractor.removeLiquidity(wallet3);
-    //   assert.equal(0, await rouletteInteractor.getTotalLiquidity());
-    //   assert.equal(200, await daiMockInteractor.balanceOf(wallet1.address));
-    //   assert.equal(200, await daiMockInteractor.balanceOf(wallet2.address));
-    //   assert.equal(200, await daiMockInteractor.balanceOf(wallet3.address));
-    // });
-    // it('should withdraw less when pool decreases', async () => {
-    //   const wallet1 = wallets[0];
-    //   const wallet2 = wallets[1];
-    //   const wallet3 = wallets[2];
-  
-    //   // Check pool negative returns
-    //   await rouletteInteractor.addLiquidity(wallet1, 100);
-    //   await rouletteInteractor.addLiquidity(wallet2, 100);
-    //   await rouletteInteractor.addLiquidity(wallet3, 100);
-    //   await rouletteInteractor.burnDai(60);
-    //   assert.equal(240, await rouletteInteractor.getTotalLiquidity());
-    //   await rouletteInteractor.removeLiquidity(wallet1);
-    //   await rouletteInteractor.removeLiquidity(wallet2);
-    //   await rouletteInteractor.removeLiquidity(wallet3);
-    //   assert.equal(0, await rouletteInteractor.getTotalLiquidity());
-    //   assert.equal(180, await daiMockInteractor.balanceOf(wallet1.address));
-    //   assert.equal(180, await daiMockInteractor.balanceOf(wallet2.address));
-    //   assert.equal(180, await daiMockInteractor.balanceOf(wallet3.address));
-    // });
-    // it('should manage equity with dynamic liquidity', async () => {
-    //   const wallet1 = wallets[0];
-    //   const wallet2 = wallets[1];
-    //   const wallet3 = wallets[2];
-  
-    //   // Check pool negative returns
-    //   await rouletteInteractor.addLiquidity(wallet1, 100);
-    //   await rouletteInteractor.addLiquidity(wallet2, 100);
-    //   await rouletteInteractor.addLiquidity(wallet3, 100);
-    //   await rouletteInteractor.burnDai(12);
-    //   assert.equal(288, await rouletteInteractor.getTotalLiquidity());
-    //   await rouletteInteractor.removeLiquidity(wallet1);
-    //   assert.equal(176, await daiMockInteractor.balanceOf(wallet1.address));
-    //   assert.equal(288-96, await rouletteInteractor.getTotalLiquidity());
-    //   await rouletteInteractor.mintDAI(100);
-    //   assert.equal(288-96+100, await rouletteInteractor.getTotalLiquidity());
-    //   await rouletteInteractor.removeLiquidity(wallet2);
-    //   await rouletteInteractor.removeLiquidity(wallet3);
-    //   assert.equal(226, await daiMockInteractor.balanceOf(wallet2.address));
-    //   assert.equal(226, await daiMockInteractor.balanceOf(wallet3.address));
-    // });
-    // it('should work with big shares', async () => {
-    //   const wallet1 = wallets[1];
-    //   const wallet2 = wallets[2];
-    //   const poolingAmount = 1e8;
-    //   await daiMockInteractor.burn(wallet1.address, await daiMockInteractor.balanceOf(wallet1.address));
-    //   await daiMockInteractor.burn(wallet2.address, await daiMockInteractor.balanceOf(wallet2.address));
-    //   assert.equal(0, await daiMockInteractor.balanceOf(wallet1.address));
-    //   assert.equal(0, await daiMockInteractor.balanceOf(wallet2.address));
-    //   await daiMockInteractor.mint(wallet1.address, poolingAmount);
-    //   await daiMockInteractor.mint(wallet2.address, poolingAmount);
-    //   assert.equal(1e8, await daiMockInteractor.balanceOf(wallet1.address));
-    //   assert.equal(1e8, await daiMockInteractor.balanceOf(wallet2.address));
-    //   await rouletteInteractor.addLiquidity(wallet1, poolingAmount);
-    //   await rouletteInteractor.addLiquidity(wallet2, poolingAmount);
-    //   assert.equal(0, await daiMockInteractor.balanceOf(wallet1.address));
-    //   assert.equal(0, await daiMockInteractor.balanceOf(wallet2.address));
-    //   await rouletteInteractor.removeLiquidity(wallet1);
-    //   await rouletteInteractor.removeLiquidity(wallet2);
-    //   assert.equal(1e8, await daiMockInteractor.balanceOf(wallet1.address));
-    //   assert.equal(1e8, await daiMockInteractor.balanceOf(wallet2.address));
-    // });
+
   });
-  // describe('with single bets', async () => {
-  //   const wallet = wallets[4];
-  //   it('should setup initial DAI', async () => {
-  //     await rouletteInteractor.mintDAI(1000);
-  //     await daiMockInteractor.mint(wallet.address, 100);
-  //   })
-  //   describe('when betting color', async () => {
-  //     const betColor = betFor(BetType.Color, wallet);
 
-  //     it('should lose if outcome is not of bet color', async () => {
-  //       assert.equal(100, await daiMockInteractor.balanceOf(wallet.address));
-  //       await betColor(Color.Red, 2, 2); // 2 is black
-  //       assert.equal(98, await daiMockInteractor.balanceOf(wallet.address));
-  //       assert.equal(1002, await rouletteInteractor.getTotalLiquidity());
+  describe('cashIn / cashOut', async () => {
 
-  //       await betColor(Color.Black, 18, 2); // 18 is red
-  //       assert.equal(96, await daiMockInteractor.balanceOf(wallet.address));
-  //       assert.equal(1004, await rouletteInteractor.getTotalLiquidity());
-  //     });
+    const wallet = accounts[2];
+
+    it('should let user cashIn', async () => {
+      const roulette = await Roulette.deployed();
+      const csphere = await cSphere.deployed();
+
+      await daiMockInteractor.mint(wallet, 100)
+      await daiMockInteractor.approve(roulette.address, expandTo18Decimals(100), {from: wallet});
+      await roulette.cashIn(100, {from: wallet});
+      assert.equal(await csphere.balanceOf(wallet), 100, "wrong initial balance");
+    })
+
+    it('should let user cashOut', async () => {
+      const roulette = await Roulette.deployed();
+      const csphere = await cSphere.deployed();
+
+      await csphere.approve(roulette.address, expandTo18Decimals(100), {from: wallet});
+
+      await roulette.cashOut(100, {from: wallet});
+      assert.equal(await daiMockInteractor.balanceOf(wallet), 100, {from: wallet});
+    })
+  });
+
+  describe('with single bets', async () => {
+    const wallet = accounts[3];
+    it('should setup initial balance', async () => {
+      const roulette = await Roulette.deployed();
+      const csphere = await cSphere.deployed();
+
+      await daiMockInteractor.mint(wallet, 100);
+      assert.equal(await daiMockInteractor.balanceOf(wallet), 100, "wrong initial balance");
+      await daiMockInteractor.approve(roulette.address, expandTo18Decimals(100), {from: wallet});
+      await roulette.cashIn(expandTo18Decimals(100), {from: wallet});
+      let balance = collapseTo18Decimals((await csphere.balanceOf(wallet)).toString())
+      assert.equal(balance, 100, "wrong initial balance");
+
+      const srcWallet = accounts[0];
+      await daiMockInteractor.approve(roulette.address, expandTo18Decimals(100), {from: srcWallet});
+      await roulette.addLiquidity(expandTo18Decimals(100), {from: srcWallet});
+    })
+
+    describe('when betting color', async () => {
+      const betColor = betFor(BetType.Color, wallet);
+
+      it('should lose if outcome is not of bet color', async () => {
+        const csphere = await cSphere.deployed();
+        const roulette = await Roulette.deployed();
+
+        let balance = collapseTo18Decimals((await csphere.balanceOf(wallet)).toString())
+        assert.equal(100, balance, "unexpected balance");
+
+        csphere.approve(roulette.address, expandTo18Decimals(100), {from: wallet});
+        await betColor(Color.Red, 2, 1); // 2 is black
+        balance = collapseTo18Decimals((await csphere.balanceOf(wallet)).toString())
+        assert.equal(99, balance);
+        assert.equal(101, await rouletteInteractor.getTotalLiquidity());
+
+        await betColor(Color.Black, 18, 1); // 18 is red
+        balance = collapseTo18Decimals((await csphere.balanceOf(wallet)).toString())
+        assert.equal(98, balance);
+        assert.equal(102, await rouletteInteractor.getTotalLiquidity());
+      });
   //     it('should lose if outcome is zero', async () => {
   //       await betColor(Color.Black, 0, 2);
   //       assert.equal(94, await daiMockInteractor.balanceOf(wallet.address));
@@ -196,7 +140,7 @@ contract('Roulette', async (accounts) => {
   //       assert.equal(100, await daiMockInteractor.balanceOf(wallet.address));
   //       assert.equal(1000, await rouletteInteractor.getTotalLiquidity());
   //     });
-  //   });
+    });
   //   describe('when betting column', async () => {
   //     const betColumn = betFor(BetType.Column, wallet);
 
@@ -334,7 +278,7 @@ contract('Roulette', async (accounts) => {
   //       assert.equal(970, await rouletteInteractor.getTotalLiquidity());
   //     });
   //   });
-  // });
+  });
   // describe('with max bets', async () => {
   //   const wallet = wallets[4];
   //   const betNumber = betFor(BetType.Number, wallet);

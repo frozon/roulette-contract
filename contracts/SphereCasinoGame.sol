@@ -54,7 +54,7 @@ contract SphereCasinoGame is Ownable {
     }
 
     require(
-      IERC20(sphereToken).transferFrom(address(this), msg.sender, amount),
+      IERC20(sphereToken).transfer(msg.sender, amount),
       "cashOut failed"
     );
   }
