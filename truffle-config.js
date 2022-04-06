@@ -2,7 +2,7 @@ require('dotenv').config()
 
 module.exports = {
   networks: {
-    ganache: {
+    development: {
       host: "127.0.0.1",
       port: 8545,
       network_id: "*"
@@ -11,6 +11,13 @@ module.exports = {
   compilers: {
     solc: {
       version: "^0.8.0",
+      settings: {
+        optimizer: {
+          enabled: true,
+          runs: 50
+        },
+        evmVersion: "byzantium"
+      }
     },
   },
 };
