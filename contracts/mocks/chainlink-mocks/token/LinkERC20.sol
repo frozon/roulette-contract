@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0
 // TODO: Remove this mock once Chainlink supports v0.8 mocks
 pragma solidity ^0.8.0;
 

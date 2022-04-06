@@ -33,6 +33,7 @@ contract VRFCoordinatorMock {
         uint256 b = 206000;
         require(gasleft() >= b, "not enough gas for consumer");
         (bool success,) = consumerContract.call(resp);
+        require(success, "call failed");
     }
 
     modifier onlyLINK() {
