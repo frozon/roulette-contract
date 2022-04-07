@@ -60,9 +60,9 @@ module.exports = {
       randomSeed,
       {from: wallet, gasLimit: 30000000}
     );
-    // if (autosign) {
-    //   await signLastBlockVRFRequest(randomSeed);
-    // }
+    if (autosign) {
+      await signLastBlockVRFRequest(randomSeed);
+    }
   },
   async redeem(requestId) {
     const roulette = await Roulette.deployed();
