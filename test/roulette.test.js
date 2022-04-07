@@ -119,13 +119,14 @@ contract('Roulette', async (accounts) => {
         await betColor(Color.Red, 2, 1); // 2 is black
         balance = collapseTo18Decimals((await csphere.balanceOf(wallet)).toString())
         assert.equal(99, balance);
-        assert.equal(101, await rouletteInteractor.getTotalLiquidity());
+        assert.equal(100.5, await rouletteInteractor.getTotalLiquidity());
 
         await betColor(Color.Black, 18, 1); // 18 is red
         balance = collapseTo18Decimals((await csphere.balanceOf(wallet)).toString())
         assert.equal(98, balance);
-        assert.equal(102, await rouletteInteractor.getTotalLiquidity());
+        assert.equal(101, await rouletteInteractor.getTotalLiquidity());
       });
+
   //     it('should lose if outcome is zero', async () => {
   //       await betColor(Color.Black, 0, 2);
   //       assert.equal(94, await daiMockInteractor.balanceOf(wallet.address));
@@ -135,11 +136,15 @@ contract('Roulette', async (accounts) => {
   //       assert.equal(92, await daiMockInteractor.balanceOf(wallet.address));
   //       assert.equal(1008, await rouletteInteractor.getTotalLiquidity());
   //     });
-  //     it('should win if outcome is the bet color', async () => {
-  //       await betColor(Color.Black, 2, 8);
-  //       assert.equal(100, await daiMockInteractor.balanceOf(wallet.address));
-  //       assert.equal(1000, await rouletteInteractor.getTotalLiquidity());
-  //     });
+      it('should win if outcome is the bet color', async () => {
+        const csphere = await cSphere.deployed();
+        const roulette = await Roulette.deployed();
+
+        await betColor(Color.Black, 2, 1);
+        let balance = collapseTo18Decimals((await csphere.balanceOf(wallet)).toString())
+        assert.equal(99, balance);
+        assert.equal(100, await rouletteInteractor.getTotalLiquidity());
+      });
     });
   //   describe('when betting column', async () => {
   //     const betColumn = betFor(BetType.Column, wallet);
