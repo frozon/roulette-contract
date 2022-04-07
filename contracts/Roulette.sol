@@ -42,6 +42,7 @@ contract Roulette is SphereCasinoGame, VRFConsumerBase, ERC20 {
     mapping (bytes32 => address) _rollRequestsSender;
     mapping (bytes32 => uint8) _rollRequestsResults;
     mapping (bytes32 => uint256) _rollRequestsTime;
+    mapping (bytes32 => uint256) _rollRequestsMaxWin;
 
     uint256 BASE_SHARES = uint256(10) ** 18;
     uint256 public current_liquidity = 0;
@@ -124,7 +125,8 @@ contract Roulette is SphereCasinoGame, VRFConsumerBase, ERC20 {
         // Collect token
         IERC20(bet_token).transferFrom(msg.sender, address(this), amount + bet_fee);
 
-        locked_liquidity += getMaxWinFromBets(bets);
+        uint256 maxWin = getMaxWinFromBets(bets);
+        locked_liquidity += maxWin;
 
         bytes32 requestId = getRandomNumber(randomSeed);
         emit BetRequest(requestId, msg.sender);
@@ -132,6 +134,7 @@ contract Roulette is SphereCasinoGame, VRFConsumerBase, ERC20 {
         _rollRequestsSender[requestId] = msg.sender;
         _rollRequestsCompleted[requestId] = false;
         _rollRequestsTime[requestId] = block.timestamp;
+        _rollRequestsMaxWin[requestId] = maxWin;
         for (uint i; i < bets.length; i++) {
             _rollRequestsBets[requestId].push(bets[i]);
         }
@@ -168,21 +171,21 @@ contract Roulette is SphereCasinoGame, VRFConsumerBase, ERC20 {
         require(_rollRequestsCompleted[requestId] == false);
         uint8 result = uint8(randomness % 37);
         Bet[] memory bets = _rollRequestsBets[requestId];
-        uint256 rollLockedAmount = getRollRequestAmount(requestId) * 36;
+        // uint256 rollLockedAmount = getRollRequestAmount(requestId) * 36;
 
         // release locked liquidity
-        locked_liquidity -= getMaxWinFromBets(bets);
+        locked_liquidity -= _rollRequestsMaxWin[requestId];
 
-        uint256 totalBetValue = 0;
+        uint256 totalBetAmount = 0;
 
         uint256 amount = 0;
         for (uint index = 0; index < bets.length; index++) {
             BetType betType = BetType(bets[index].betType);
 
             uint8 betValue = uint8(bets[index].value);
-            totalBetValue += betValue;
 
             uint256 betAmount = bets[index].amount;
+            totalBetAmount += betAmount;
 
             if (betType == BetType.Number && result == betValue) {
                 amount += betAmount * 36;
@@ -216,10 +219,12 @@ contract Roulette is SphereCasinoGame, VRFConsumerBase, ERC20 {
         _rollRequestsResults[requestId] = result;
         _rollRequestsCompleted[requestId] = true;
 
-        if(burn_fee > 0 && amount < totalBetValue) {
-            uint256 burnAmount = (totalBetValue - amount) * burn_fee / 100;
-            amount -= burnAmount;
-            IERC20(bet_token).transferFrom(address(this), address(DEAD), burnAmount);
+        if(burn_fee > 0 && amount < totalBetAmount) {
+            uint256 burnAmount = (totalBetAmount - amount) * burn_fee / 100;
+            if(amount > 0) {
+                amount -= burnAmount;
+            }
+            IERC20(bet_token).transfer(address(DEAD), burnAmount);
         }
 
         if (amount > 0) {
