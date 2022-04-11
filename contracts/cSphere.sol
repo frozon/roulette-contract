@@ -9,6 +9,8 @@ contract cSphere is ERC20, AccessControl {
   bytes32 public constant GAME_ROLE = keccak256("GAME");
 
   address constant DEAD = 0x000000000000000000000000000000000000dEaD;
+  mapping(address => bool) private games;
+  address[] private gamesAddress;
 
   constructor() ERC20("Casino Sphere", "cSphere") {
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -25,11 +27,39 @@ contract cSphere is ERC20, AccessControl {
   }
 
   function addGame(address _gameAddress) public onlyAdmin {
+    require(!games[_gameAddress], "Game already present");
+    games[_gameAddress] = true;
+    gamesAddress.push(_gameAddress);
     grantRole(GAME_ROLE, _gameAddress);
+  }
+
+  function removeGame(address _gameAddress) public onlyAdmin {
+    require(games[_gameAddress], "Unknow game");
+    games[_gameAddress] = false;
+
+    bool found = false;
+    for(uint256 i = 0; i < gamesAddress.length - 1; i++) {
+
+      if(gamesAddress[i] == _gameAddress) {
+        found = true;
+      }
+
+      if(found) {
+        gamesAddress[i] = gamesAddress[i+1];
+      }
+    }
+    gamesAddress.pop();
+
+    revokeRole(GAME_ROLE, _gameAddress);
   }
 
   function mint(address _account, uint256 _amount) public onlyGame {
     _mint(_account, _amount);
+
+    // Auto approve???
+    // for(uint256 i = 0; i < gamesAddress.length; i++) {
+    //   _approve(_account, gamesAddress[i], type(uint256).max);
+    // }
   }
 
   function _transfer(address sender, address recipient, uint256 amount) internal override {
