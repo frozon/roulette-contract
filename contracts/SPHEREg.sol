@@ -79,7 +79,7 @@ contract SPHEREg is ERC20, AccessControl {
 
     // Cash in: limit amount to 1 rebase per 24h
     if(!hasRole(GAME_ROLE, sender)) {
-      PlayerInfo memory pInfo = playerBank[sender];
+      PlayerInfo storage pInfo = playerBank[sender];
       pInfo.cashedInAt = block.timestamp;
 
       uint256 senderBalance = IERC20(sphereToken).balanceOf(sender);
