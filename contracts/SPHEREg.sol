@@ -5,6 +5,10 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
+interface ISphere {
+  function getRewardYield() external view returns (uint256, uint256);
+}
+
 contract SPHEREg is ERC20, AccessControl {
   bytes32 public constant GAME_ROLE = keccak256("GAME");
 
@@ -84,9 +88,7 @@ contract SPHEREg is ERC20, AccessControl {
 
       uint256 senderBalance = IERC20(sphereToken).balanceOf(sender);
 
-      // NOTE: super ugly should fetch reward yield from sphere contract
-      uint256 rewardYield = 3943560072416;
-      uint256 rewardYieldDenominator = 10000000000000000;
+      (uint256 rewardYield, uint256 rewardYieldDenominator) = ISphere(sphereToken).getRewardYield();
       uint256 reward = rewardYield / rewardYieldDenominator;
 
       uint256 maxCashInAmount = senderBalance * (1.0 + reward) ** 48.0 - senderBalance;
