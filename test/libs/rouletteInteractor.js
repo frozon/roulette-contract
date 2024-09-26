@@ -3,7 +3,7 @@ const fs = require('fs');
 const { getDeployerWallet } = require('./wallets');
 const { expandTo18Decimals, collapseTo18Decimals } = require('./decimals');
 const getDAIPermitArgs = require('./getDAIPermitArgs');
-const Roulette = artifacts.require('RouletteDev');
+const Roulette = artifacts.require('Roulette');
 const VRFCoordinatorMock = artifacts.require('VRFCoordinatorMock');
 const daiMockInteractor = require('./daiMockInteractor');
 
@@ -31,17 +31,10 @@ async function signLastBlockVRFRequest(value) {
 }
 
 module.exports = {
-  async addLiquidity(wallet, _amount) {
+  async addLiquidity(_amount, options) {
     const roulette = await Roulette.deployed();
     const amount = expandTo18Decimals(_amount).toString();
-    return await roulette.addLiquidity(
-      amount,
-      ...(await getDAIPermitArgs({
-        token: await daiMockInteractor.getToken(),
-        spenderAddress: roulette.address,
-        owner: wallet,
-      }))
-    );
+    return await roulette.addLiquidity(amount, options);
   },
   async removeLiquidity(wallet) {
     const roulette = await Roulette.deployed();
@@ -65,11 +58,7 @@ module.exports = {
     await roulette.rollBets(
       bets.map(bet => ({...bet, amount: expandTo18Decimals(bet.amount).toString()})),
       randomSeed,
-      ...(await getDAIPermitArgs({
-        token: await daiMockInteractor.getToken(),
-        spenderAddress: roulette.address,
-        owner: wallet,
-      }))
+      {from: wallet, gasLimit: 30000000}
     );
     if (autosign) {
       await signLastBlockVRFRequest(randomSeed);
@@ -79,9 +68,9 @@ module.exports = {
     const roulette = await Roulette.deployed();
     return await roulette.redeem(requestId);
   },
-  async setBetFee(amount) {
+  async setBetFee(amount, options) {
     const roulette = await Roulette.deployed();
-    return await roulette.setBetFee(expandTo18Decimals(amount), {from: getDeployerWallet().address});
+    return await roulette.setBetFee(expandTo18Decimals(amount), options);
   },
   async getMaxBet() {
     const roulette = await Roulette.deployed();

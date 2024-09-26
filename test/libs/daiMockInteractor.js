@@ -16,5 +16,9 @@ module.exports = {
   },
   async getToken() {
     return await DAIMock.deployed();
+  },
+  async approve(address, amount, options) {
+    const dai = await DAIMock.deployed();
+    return await dai.approve(address, amount, options);
   }
 };
